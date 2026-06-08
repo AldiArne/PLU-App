@@ -1,0 +1,694 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/>
+<title>PLU Bestellung – Nortorf</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;overflow:hidden;background:#d0d0d0}
+body{font-family:'Roboto','Noto Sans',sans-serif;display:flex;justify-content:center}
+#app{width:100%;max-width:440px;background:#f4f4f4;display:flex;flex-direction:column;position:relative;overflow:hidden;height:100%}
+
+/* Error banner */
+#err-banner{position:absolute;top:0;left:0;right:0;z-index:500;transform:translateY(-110%);transition:transform .25s ease;pointer-events:none}
+#err-banner.show{transform:translateY(0);pointer-events:auto}
+#err-inner{background:#e65100;color:white;padding:12px 16px;text-align:center;font-size:13px;font-weight:700;line-height:1.4}
+@keyframes shk{0%,100%{transform:translateX(0)}20%{transform:translateX(-9px)}40%{transform:translateX(9px)}60%{transform:translateX(-6px)}80%{transform:translateX(4px)}}
+#err-inner.shaking{animation:shk .4s ease}
+@keyframes rip{0%{box-shadow:0 0 0 0 rgba(229,57,53,.5)}70%{box-shadow:0 0 0 10px rgba(229,57,53,0)}100%{box-shadow:0 0 0 0 rgba(229,57,53,0)}}
+
+/* Views */
+.view{display:none;flex-direction:column;flex:1;overflow:hidden}
+.view.active{display:flex}
+
+/* API Key screen */
+#v-key{background:white;align-items:center;justify-content:center;padding:32px;text-align:center}
+.key-icon{font-size:48px;margin-bottom:16px}
+.key-title{font-weight:700;font-size:18px;color:#111;margin-bottom:10px}
+.key-desc{font-size:13px;color:#777;line-height:1.6;margin-bottom:22px}
+.f-input{width:100%;padding:10px 12px;border:1.5px solid #ddd;border-radius:8px;font-size:14px;font-family:inherit;outline:none;margin-bottom:10px}
+.btn-prim{width:100%;padding:13px;background:#1a237e;color:white;border:none;border-radius:8px;font-size:15px;font-weight:700;cursor:pointer}
+.btn-skip{background:none;border:none;color:#009688;font-size:13px;cursor:pointer;margin-top:10px}
+
+/* Main view header */
+.hdr{display:flex;align-items:center;padding:10px 14px 10px 10px;background:white;border-bottom:1px solid #e0e0e0;flex-shrink:0}
+.hdr-title{flex:1;display:flex;align-items:center;justify-content:center;gap:7px;font-size:17px;font-weight:700;color:#111}
+.ico-btn{background:none;border:none;cursor:pointer;padding:4px 8px;font-size:20px;color:#666}
+#mic-btn{width:44px;height:44px;border-radius:22px;border:none;cursor:pointer;background:#009688;color:white;font-size:19px;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:background .2s;margin-left:6px}
+#mic-btn.rec{background:#e53935;animation:rip 1.5s infinite}
+
+/* Interim */
+#interim-bar{background:#e0f2f1;padding:6px 14px;font-size:13px;color:#00695c;border-bottom:1px solid #b2dfdb;flex-shrink:0;display:none}
+#interim-bar.show{display:block}
+
+/* Item list */
+#item-list{flex:1;overflow-y:auto;background:white}
+.empty{text-align:center;padding:60px 24px;color:#ccc}
+.empty-ico{font-size:52px;margin-bottom:14px}
+.empty-t{font-size:15px;font-weight:700;color:#aaa}
+.empty-h{font-size:13px;margin-top:6px}
+
+.row-wrap{position:relative;overflow:hidden;border-bottom:1px solid #e8e8e8}
+.del-bg{position:absolute;right:0;top:0;bottom:0;width:68px;background:#e53935;display:flex;align-items:center;justify-content:center;color:white;font-size:22px}
+.item-row{display:flex;justify-content:space-between;padding:11px 14px;background:white;transform:translateX(0);transition:transform .2s ease,background .9s ease;user-select:none;-webkit-user-select:none}
+.item-row.ok{background:#d0f0d8}
+.i-left{min-width:0;flex:1;margin-right:12px}
+.i-name{font-weight:700;font-size:13.5px;color:#111;letter-spacing:.3px;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.i-plu{font-size:12px;color:#bbb;margin-top:2px}
+.i-total{font-size:13px;color:#444;margin-top:3px}
+.i-right{text-align:right;flex-shrink:0}
+.i-price{font-size:14px;color:#111}
+.i-qty{font-size:13px;color:#555;margin-top:2px}
+.i-del{background:none;border:none;cursor:pointer;font-size:15px;color:#ccc;margin-top:3px;padding:2px 0;display:block;width:100%;text-align:right;transition:color .15s}
+.i-del:hover,.i-del:active{color:#e53935}
+
+/* Visualizer */
+#visualizer{height:54px;background:white;border-top:1px solid #eee;padding:0 8px;display:flex;align-items:center;opacity:0;transition:opacity .3s;flex-shrink:0}
+#visualizer.show{opacity:1}
+#vis-cv{width:100%;height:42px}
+
+/* Footer */
+#footer{display:flex;align-items:center;padding:10px 12px;background:#efefef;border-top:1px solid #d8d8d8;gap:8px;flex-shrink:0}
+#total-lbl{flex:1;font-weight:700;font-size:17px;color:#111}
+.btn-send{padding:10px 18px;background:#1a237e;color:white;border:none;border-radius:7px;font-weight:700;font-size:14px;cursor:pointer}
+.btn-send:disabled{background:#bbb;cursor:default}
+.btn-add{padding:10px 13px;background:white;color:#333;border:1.5px solid #c8c8c8;border-radius:7px;font-weight:600;font-size:14px;cursor:pointer}
+
+/* Archive */
+.arch-hdr{display:flex;align-items:center;padding:12px 14px;background:white;border-bottom:1px solid #e8e8e8;gap:10px;flex-shrink:0}
+.arch-back{background:none;border:none;cursor:pointer;font-size:26px;color:#555;line-height:1;padding:0}
+.arch-lbl{font-size:16px;font-weight:700;color:#111}
+.arch-scroll{flex:1;overflow-y:auto;background:white}
+.arch-row{padding:13px 16px;border-bottom:1px solid #efefef;cursor:pointer;display:flex;justify-content:space-between;align-items:center}
+.arch-row:hover{background:#f9f9f9}
+.arch-date{font-weight:700;font-size:14px;color:#111}
+.arch-sub{font-size:12px;color:#888;margin-top:2px}
+.arch-tot{font-weight:700;color:#1a237e;font-size:15px}
+.arch-empty{text-align:center;padding:50px 20px;color:#ccc;font-size:14px}
+.arch-footer{padding:12px 16px;background:#f4f4f4;border-top:1px solid #ddd;text-align:center;flex-shrink:0;font-weight:700;font-size:18px;color:#111}
+.det-row{display:flex;justify-content:space-between;padding:10px 14px;border-bottom:1px solid #efefef}
+.det-name{font-weight:700;font-size:13.5px;text-transform:uppercase;color:#111;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.det-plu{font-size:12px;color:#bbb;margin-top:2px}
+.det-ges{font-size:13px;color:#444;margin-top:3px}
+
+/* Add modal */
+#add-modal{position:absolute;inset:0;background:rgba(0,0,0,.45);z-index:300;display:none;align-items:flex-end}
+#add-modal.show{display:flex}
+#add-sheet{background:white;width:100%;border-radius:16px 16px 0 0;padding:18px 16px 24px;max-height:82%;overflow-y:auto;box-sizing:border-box}
+.add-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
+.add-title{font-weight:700;font-size:16px;color:#111}
+.add-x{background:none;border:none;cursor:pointer;color:#888;font-size:22px;line-height:1}
+.tabs{display:flex;border-bottom:2px solid #eee;margin-bottom:14px}
+.tab{flex:1;padding:7px 0;border:none;background:none;cursor:pointer;font-weight:700;font-size:13px;color:#bbb;border-bottom:2.5px solid transparent;margin-bottom:-2px}
+.tab.on{color:#009688;border-bottom-color:#009688}
+.art-prev{background:#e0f7f1;border-radius:8px;padding:10px 12px;margin-top:8px;display:flex;justify-content:space-between;align-items:center}
+.art-hit{background:#f6f6f6;border-radius:8px;padding:9px 12px;margin-top:6px;cursor:pointer;display:flex;justify-content:space-between;align-items:center}
+.art-hit.sel{background:#e0f7f1}
+.art-n{font-size:14px;font-weight:700;color:#111}
+.art-s{font-size:12px;color:#777}
+.qty-sec{margin-top:14px;display:none}
+.qty-lbl{font-size:13px;color:#555;display:block;margin-bottom:6px}
+.err-t{color:#e53935;font-size:13px;margin-top:8px}
+.btn-add-confirm{margin-top:16px;width:100%;padding:13px;background:#1a237e;color:white;border:none;border-radius:8px;font-size:15px;font-weight:700;cursor:pointer}
+.btn-add-confirm:disabled{background:#ccc;cursor:default}
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- Error Banner -->
+  <div id="err-banner"><div id="err-inner">⚠️ <span id="err-msg"></span></div></div>
+
+  <!-- API KEY -->
+  <div class="view" id="v-key">
+    <div class="key-icon">🔑</div>
+    <div class="key-title">Anthropic API-Key</div>
+    <div class="key-desc">
+      Für die KI-Spracherkennung (komplexe Eingaben) wird ein<br>
+      Anthropic API-Key benötigt.<br>
+      <b>console.anthropic.com</b><br><br>
+      Einfache Eingaben wie „2kg Bananen" oder<br>„PLU 8 fünf Kilo" funktionieren auch ohne Key.
+    </div>
+    <input type="password" id="key-inp" class="f-input" placeholder="sk-ant-..."/>
+    <button class="btn-prim" onclick="saveKey()">Speichern &amp; starten</button>
+    <button class="btn-skip" onclick="saveKey(true)">Ohne API-Key fortfahren</button>
+  </div>
+
+  <!-- MAIN -->
+  <div class="view" id="v-main">
+    <div class="hdr">
+      <button class="ico-btn" onclick="goArc()" title="Archiv">🗂️</button>
+      <div class="hdr-title"><span style="color:#009688">📋</span>Positionen</div>
+      <button class="ico-btn" onclick="goKey()" title="API-Key">🔑</button>
+      <button id="mic-btn" onclick="toggleRec()">🎙</button>
+    </div>
+    <!-- Debug log: shows last 5 raw transcripts -->
+    <div id="debug-bar" style="display:none;background:#fff3e0;padding:4px 10px;font-size:11px;color:#e65100;border-bottom:1px solid #ffe0b2;cursor:pointer" onclick="toggleDebug()">
+      <b>🔍 DEBUG</b> <span id="debug-log"></span>
+    </div>
+    <div id="interim-bar"></div>
+    <div id="item-list"></div>
+    <div id="visualizer"><canvas id="vis-cv" height="42"></canvas></div>
+    <div id="footer">
+      <div id="total-lbl">∑ 0,00&nbsp;€</div>
+      <button class="btn-send" id="send-btn" onclick="doSend()" disabled>📤 Senden</button>
+      <button class="btn-add" onclick="openAdd()">＋ Hinzufügen</button>
+    </div>
+  </div>
+
+  <!-- ARCHIVE LIST -->
+  <div class="view" id="v-arc">
+    <div class="arch-hdr">
+      <button class="arch-back" onclick="go('main')">‹</button>
+      <span class="arch-lbl">Gespeicherte Listen</span>
+    </div>
+    <div id="arc-list" class="arch-scroll"></div>
+  </div>
+
+  <!-- ARCHIVE DETAIL -->
+  <div class="view" id="v-det">
+    <div class="arch-hdr">
+      <button class="arch-back" onclick="go('arc')">‹</button>
+      <div>
+        <div id="det-title" style="font-size:15px;font-weight:700;color:#111"></div>
+        <div id="det-sub" style="font-size:12px;color:#888"></div>
+      </div>
+    </div>
+    <div id="det-list" class="arch-scroll"></div>
+    <div id="det-footer" class="arch-footer"></div>
+  </div>
+
+  <!-- ADD MODAL -->
+  <div id="add-modal" onclick="modalBg(event)">
+    <div id="add-sheet">
+      <div class="add-head">
+        <span class="add-title">Artikel hinzufügen</span>
+        <button class="add-x" onclick="closeAdd()">✕</button>
+      </div>
+      <div class="tabs">
+        <button class="tab on" id="t-num" onclick="switchTab('num')">🔢 Nummer</button>
+        <button class="tab" id="t-name" onclick="switchTab('name')">🔤 Name</button>
+      </div>
+      <div id="c-num">
+        <input type="number" inputmode="numeric" class="f-input" id="num-inp" placeholder="PLU-Nummer…" oninput="numInp()"/>
+        <div id="num-res"></div>
+      </div>
+      <div id="c-name" style="display:none">
+        <input type="text" class="f-input" id="name-inp" placeholder="Artikelname suchen…" oninput="nameInp()"/>
+        <div id="name-res"></div>
+      </div>
+      <div class="qty-sec" id="qty-sec">
+        <label class="qty-lbl" id="qty-lbl">Menge:</label>
+        <input type="number" inputmode="decimal" class="f-input" id="qty-inp" value="1" min="0.01"/>
+      </div>
+      <button class="btn-add-confirm" id="add-ok" onclick="doAdd()" disabled>Hinzufügen</button>
+    </div>
+  </div>
+
+  <!-- EDIT MODAL -->
+  <div id="edit-modal" onclick="editModalBg(event)" style="position:absolute;inset:0;background:rgba(0,0,0,.45);z-index:400;display:none;align-items:flex-end">
+    <div style="background:white;width:100%;border-radius:16px 16px 0 0;padding:20px 16px 28px;box-sizing:border-box">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+        <span style="font-weight:700;font-size:16px;color:#111">Menge bearbeiten</span>
+        <button onclick="closeEdit()" style="background:none;border:none;cursor:pointer;color:#888;font-size:22px;line-height:1">✕</button>
+      </div>
+      <div id="edit-art-name" style="font-size:13px;color:#009688;font-weight:600;margin-bottom:14px;text-transform:uppercase;letter-spacing:.3px"></div>
+      <label id="edit-qty-lbl" style="font-size:13px;color:#555;display:block;margin-bottom:6px">Menge:</label>
+      <input type="number" inputmode="decimal" id="edit-qty-inp" class="f-input" min="0.001" style="margin-bottom:16px"/>
+      <div style="display:flex;gap:10px">
+        <button onclick="closeEdit()" style="flex:1;padding:12px;background:#f0f0f0;color:#333;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer">Abbrechen</button>
+        <button onclick="confirmEdit()" style="flex:2;padding:12px;background:#1a237e;color:white;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer">Übernehmen</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+<script>
+// ── DATA ──────────────────────────────────────────────────
+const isKG=n=>/kg.?ware/i.test(n);
+const WR=[
+  [1,"Bananen kg-Ware",.99],[2,"Gurken",.79],[8,"Rispentomaten kg-Ware",1.49],
+  [10,"Äpfel Pink Lady kg-Ware",1.99],[13,"Nektarinen kg-Ware",2.29],[23,"Pfirsiche kg-Ware",2.49],
+  [24,"Avocado Sorte Hass",1.49],[27,"Speisekürbis Butternut kg-Ware",1.29],
+  [29,"Honigmelone",1.29],[31,"Zucchini kg-Ware",1.29],[35,"Lauchzwiebeln Bund",.69],
+  [36,"Piel de Sapo Melone",.99],[38,"Ananas",1.49],[41,"Chinakohl kg-Ware",.99],
+  [42,"Äpfel Joya kg-Ware",1.79],[45,"Kohlrabi",.79],[50,"Rotkohl kg-Ware",.99],
+  [52,"Weisskohl kg-Ware",.79],[55,"Rettich",.79],[57,"Zespri Kiwi Gold",1.29],
+  [59,"Radieschen Bund",.69],[60,"Mango",2.99],[66,"Wassermelone kg-Ware",.69],
+  [67,"Kaki",2.49],[73,"Nashibirne Stück",1.49],[77,"Birnen kg-Ware",1.79],
+  [78,"Blattclementinen kg-Ware",1.29],[79,"Cantaloupe Melonen kg-Ware",.99],
+  [84,"Spitzkohl kg-Ware",.99],[87,"Kiwis grün Stück",.89],[88,"Blumenkohl Stück",.99],
+  [89,"Galiamelone kg-Ware",1.29],[101,"Paprika rot kg-Ware",2.49],
+  [103,"Passionsfrüchte Stück",.79],[106,"Erdbeeren KG-Ware",3.49],
+  [107,"Bio Ingwer kg-Ware",2.99],[116,"Möhren Bund",.79],[138,"Orangen kg-Ware",1.19],
+  [144,"Speisekürbis Halloween Stück",2.99],[152,"Porree Stück",.69],
+  [157,"Mini Wassermelone",1.99],[170,"Kirschen kg-Ware",3.99],
+  [175,"Bio Fairtrade Bananen kg-Ware",1.29],[179,"Knollensellerie kg-Ware",1.49],
+  [180,"Plattpfirsiche Paraguayos kg-Ware",2.49],[182,"Grapefruits",1.49],
+  [195,"Clementinen",1.29],[196,"Süsskartoffeln kg-Ware",1.49],
+  [200,"Mandarinen kg Ware",1.49],[206,"Auberginen",1.99],
+  [218,"Aprikosen kg Ware",2.99],[241,"Äpfel ALDIamo kg Ware",1.49],
+  [242,"Zitronen kg-Ware",1.99],[243,"Bio Mini Wassermelonen Stück",2.49],
+  [283,"Äpfel rot kg-Ware",1.49],[284,"Wassermelone kernhaltig kg-Ware",.69],
+  [288,"Plumcot kg-Ware",2.49],[999,"Fenchel kg-Ware",.99],
+  [5117,"Speisekürbisse kg-Ware",1.29],[5158,"Zespri Kiwi grün",.89],
+];
+const SR=[
+  [3,"Paprika Mix",1.49],[6,"Eisberg",.89],
+  [12,"Miniroma Rispentomaten 500g",1.29],[286,"Kartoffeln 500g",.99],
+  [124,"Avocado Netz 500g",1.79],[220,"Aprikosen Schale 500g",2.49],
+  [3,"Bio Kress",.69],
+];
+const ALL=[
+  ...WR.map(([p,n,pr])=>({plu:p,name:n,price:pr,unit:isKG(n)?"KG":"ST"})),
+  ...SR.map(([p,n,pr])=>({plu:p,name:n,price:pr,unit:"ST"})),
+];
+const norm=s=>s.replace(/ß/g,'ss');
+const strip=s=>norm(s.toLowerCase()).replace(/\s*kg.?ware/gi,"").replace(/\s*\bkg\b/gi,"").replace(/\s*stück/gi,"").replace(/\s*bund/gi,"").replace(/\s+/g," ").trim();
+const IDX=ALL.map(a=>({...a,s:strip(a.name)}));
+
+// ── HELPERS ───────────────────────────────────────────────
+const eur=n=>n.toFixed(2).replace(".",",")+"\u00a0€";
+const fq=(q,u)=>u==="KG"?q.toFixed(3).replace(".",",")+"\u00a0KG":Math.round(q)+"\u00a0ST";
+
+// ── STATE ─────────────────────────────────────────────────
+let items=[],archive=[],recActive=false,isProc=false,procQ=[];
+let selArt=null,addTab='num',apiKey='',nameResults=[];
+let errTimer=null,succId=null,succTimer=null;
+let vizAC=null,vizStream=null,vizRaf=null;
+
+// ── NUMBERS ───────────────────────────────────────────────
+const NW={'null':0,'ein':1,'eine':1,'eins':1,'einem':1,'einen':1,'anderthalb':1.5,'eineinhalb':1.5,'zwei':2,'drei':3,'vier':4,'fünf':5,'sechs':6,'sieben':7,'acht':8,'neun':9,'zehn':10,'elf':11,'zwölf':12,'dreizehn':13,'vierzehn':14,'fünfzehn':15,'sechzehn':16,'siebzehn':17,'achtzehn':18,'neunzehn':19,'zwanzig':20,'fünfundzwanzig':25,'dreißig':30,'vierzig':40,'fünfzig':50,'sechzig':60,'siebzig':70,'achtzig':80,'neunzig':90,'hundert':100};
+const NK=Object.keys(NW).sort((a,b)=>b.length-a.length);
+const NRE=NK.join("|");
+// "X Komma Y" → "X.Y" (German decimal speech)
+function handleKomma(str){
+  // Also collapse "1 komma 5 4 3" → "1 komma 543" (spoken single digits after komma)
+  str=str.replace(/(\bkomma\b\s*)((?:\d\s+){1,5}\d)/gi,(m,k,d)=>k+d.replace(/\s+/g,""));
+  const wmap={'null':0,'ein':1,'eine':1,'eins':1,'einem':1,'einen':1,'anderthalb':1.5,'eineinhalb':1.5,'zwei':2,'drei':3,'vier':4,'fünf':5,'sechs':6,'sieben':7,'acht':8,'neun':9,'zehn':10,'elf':11,'zwölf':12,'dreizehn':13,'vierzehn':14,'fünfzehn':15,'sechzehn':16,'siebzehn':17,'achtzehn':18,'neunzehn':19,'zwanzig':20,'fünfundzwanzig':25,'dreißig':30,'vierzig':40,'fünfzig':50,'sechzig':60,'siebzig':70,'achtzig':80,'neunzig':90,'hundert':100};
+  return str.replace(/([a-zäöüß\d]+(?:[.,]\d+)?)\s+komma\s+(\d+)/gi,(match,a,b)=>{
+    const al=a.toLowerCase();
+    const n=(wmap[al]!==undefined)?wmap[al]:parseFloat(al.replace(',','.'));
+    if(isNaN(n))return match;
+    return String(n)+'.'+b;
+  });
+}
+function toN(s){if(!s)return null;const c=String(s).replace(",",".").trim();const n=parseFloat(c);if(!isNaN(n))return n;return NW[c.toLowerCase()]??null;}
+
+// ── LOCAL PARSER ──────────────────────────────────────────
+
+// ── ALIAS TABLE — phonetic/alternative names ──────────────
+// Maps spoken variants → correct PLU
+const ALIASES=[
+  // Galiamelone (PLU 89): "Galliermelone", "Galiermelone", "Galia"
+  {words:['galliermelone','galiermelone','galiamelone','galia melone','galia'],plu:89},
+  // Cantaloupe Melonen (PLU 79): German pronunciation variants
+  {words:['kantaloupe','kantalupe','kantalupemelone','kantaloupe melone','cantaloupe melone','cantaloupe'],plu:79},
+  // Honigmelone (PLU 29): should work via tier1 but add alias for safety
+  {words:['honigmelone'],plu:29},
+  // Wassermelone kg (PLU 66)
+  {words:['wassermelone'],plu:66},
+  // Mini Wassermelone (PLU 157)
+  {words:['mini wassermelone','mini melone'],plu:157},
+  // Plattpfirsiche Paraguayos (PLU 180): "plattfüssige Paraguayers", "Paraguayos", "Paraguayers"
+  {words:[
+    'paraguayers','paraguayer','paraguayos',
+    'plattfüssige','plattfussige',
+    'plattpfirsiche','plattpfirsichen','plattpfirsisches',
+    'plattpfirsische','plattpfirsisch','plattpfirs',
+    // Spracherkennung trennt Komposita oft: 'Platt Pfirsich...' 
+    'platt pfirsiche','platt pfirsichen','platt pfirsisch',
+    'platt pfirsische','platt pfirsche',
+    'plattfüssige paraguayers','plattfüssige pfirsiche',
+  ],plu:180},
+  // Süsskartoffeln (PLU 196): alternative spellings
+  {words:['süsskartoffeln','süsskartoffel','süsskartoffeln'],plu:196},
+  // Bio Ingwer (PLU 107): just "ingwer"
+  {words:['ingwer'],plu:107},
+  // Blumenkohl Stück (PLU 88): "blumenkohl"
+  {words:['blumenkohl'],plu:88},
+  // Porree (PLU 152): "lauch","porree"
+  {words:['porree','lauch stück'],plu:152},
+  // Clementinen (PLU 195): vs Blattclementinen (PLU 78)
+  {words:['clementinen'],plu:195},
+  {words:['blattclementinen','clementinen mit blatt'],plu:78},
+];
+
+function aliasParse(rest){
+  for(const {words,plu} of ALIASES){
+    if(words.some(w=>rest.includes(w))){
+      return IDX.find(a=>a.plu===plu&&words.some(w=>a.s.includes(w.split(' ')[0])))||IDX.find(a=>a.plu===plu)||null;
+    }
+  }
+  return null;
+}
+
+function lParse(raw){
+  // Normalize ß, apply Komma-decimal, lowercase
+  // Protect decimal commas/points in numbers (e.g. "1,543" stays "1.543" and is not split)
+  const t=handleKomma(
+    norm(raw.toLowerCase())
+    .replace(/(\d)[,\.](\d)/g,"$1DECPT$2")  // protect "1,543" and "1.543"
+    .replace(/[.,!?;:]/g," ")                  // strip punctuation
+    .replace(/DECPT/g,".")                      // restore as period → "1.543"
+    .replace(/\bnummer\b/gi," plu ")
+    .replace(/\s+/g," ").trim()
+  );
+  let qty=null,unit=null,rest=t;
+  // Strip kilo variants to avoid "kilogramm" being matched as gramm
+  const tg=t.replace(/kilo(?:gramm)?/gi,"KILO");
+  // Gramm: digits + standalone "g" or "gramm" (NOT inside "kilogramm")
+  const grDigitR=/(\d+(?:[.,.]\d+)?)\s*(?:\bgramm\b|\bg\b)/i; // decimal period or comma
+  // Gramm: word-number + "gramm"
+  const grWordR=new RegExp(`(${NRE})\\s+\\bgramm\\b`,"i");
+  const kR=new RegExp(`(${NRE}|\\d+(?:[.,]\\d+)?)\\s*(?:kilo(?:gramm)?|kg)\\b`,"i");
+  const sR=new RegExp(`(${NRE}|\\d+(?:[.,]\\d+)?)\\s*(?:stücke?|stk\\.?)\\b`,"i");
+  let m;
+  // Match gramm against tg (kilo-stripped), kg/st against original t
+   if((m=tg.match(grDigitR))){qty=parseFloat(m[1].replace(",","."))/1000;unit="KG";rest=t.replace(m[0]," ").replace(/\s+/g," ").trim();}
+  else if((m=tg.match(grWordR))){const gq=toN(m[1]);if(gq!==null){qty=gq/1000;unit="KG";rest=t.replace(m[0]," ").replace(/\s+/g," ").trim();}}
+  if(qty===null){
+    if((m=t.match(kR))){qty=toN(m[1]);unit="KG";rest=t.replace(m[0]," ").replace(/\s+/g," ").trim();}
+    else if((m=t.match(sR))){qty=toN(m[1]);unit="ST";rest=t.replace(m[0]," ").replace(/\s+/g," ").trim();}
+  }
+  if((m=rest.match(/plu\s*(\d+)/i))){
+    const f=IDX.find(a=>String(a.plu)===m[1]);
+    if(f){if(qty===null){const r2=rest.replace(m[0]," ").trim();const nm=r2.match(new RegExp(`\\b(${NRE}|\\d+(?:[.,]\\d+)?)\\b`,"i"));if(nm)qty=toN(nm[1]);}return{plu:f.plu,name:f.name,quantity:qty??1,unit:unit??f.unit};}
+  }
+  if(!rest.match(/plu/i)&&(m=rest.match(/^\s*(\d{1,4})\b|\b(\d{1,4})\s*$/))){
+    const ns=m[1]||m[2];const f=IDX.find(a=>String(a.plu)===ns);
+    if(f){const r2=rest.replace(ns," ").trim();if(qty===null){const nm=r2.match(new RegExp(`\\b(${NRE}|\\d+(?:[.,]\\d+)?)\\b`,"i"));if(nm)qty=toN(nm[1]);}return{plu:f.plu,name:f.name,quantity:qty??1,unit:unit??f.unit};}
+  }
+  // PRIORITÄT: Alias-Tabelle zuerst (verhindert dass 'platt pfirsiche' als PLU 23 landet)
+  const aliasHit=aliasParse(rest);
+  if(aliasHit) return {plu:aliasHit.plu,name:aliasHit.name,quantity:qty??1,unit:unit??aliasHit.unit};
+
+  const sorted=[...IDX].sort((a,b)=>b.s.length-a.s.length);
+  let best=null;
+  for(const a of sorted){if(a.s.length<2)continue;if(rest.includes(a.s)){best=a;break;}}
+  if(!best){for(const a of sorted){if(a.s.length<2)continue;const ws=a.s.split(" ").filter(w=>w.length>2);if(ws.length>0&&ws.every(w=>rest.includes(w))){best=a;break;}}}
+  // Tier 3: whole-word matching (\b prevents 'melone' matching inside 'galliermelone')
+  if(!best){
+    let bestScore=0;
+    for(const a of sorted){
+      const sigW=a.s.split(' ').filter(w=>w.length>3);
+      if(!sigW.length)continue;
+      const score=sigW.filter(w=>{
+        const esc=w.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+        return new RegExp('(?:^|\\s)'+esc+'(?:\\s|$)').test(rest);
+      }).length;
+      if(score>0&&score>bestScore){bestScore=score;best=a;}
+    }
+  }
+  if(best){if(qty===null){const r2=rest.replace(best.s," ").replace(/\s+/g," ").trim();const nm=r2.match(new RegExp(`\\b(${NRE}|\\d+(?:[.,]\\d+)?)\\b`,"i"));if(nm)qty=toN(nm[1]);}return{plu:best.plu,name:best.name,quantity:qty??1,unit:unit??best.unit};}
+  return null;
+}
+
+// ── CLAUDE FALLBACK ───────────────────────────────────────
+async function parseV(text){
+  const loc=lParse(text);if(loc)return loc;
+  if(!apiKey)return{error:true};
+  try{
+    const list=IDX.map(a=>`${a.plu}|${a.s}|${a.unit}`).join("\n");
+    const res=await fetch("https://api.anthropic.com/v1/messages",{
+      method:"POST",
+      headers:{"Content-Type":"application/json","x-api-key":apiKey,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},
+      body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:120,messages:[{role:"user",content:`Supermarkt-Spracheingabe parsen (ALDI Nortorf).\nFormat PLU|Name|Einheit:\n${list}\nWICHTIGE SYNONYME: Galliermelone/Galiermelone→PLU 89 (Galiamelone), Kantaloupe/Kantalupe/Kantalupemelone→PLU 79 (Cantaloupe Melonen), Paraguayers/Paraguayos/Plattfüssige→PLU 180 (Plattpfirsiche Paraguayos), Ingwer→PLU 107 (Bio Ingwer), Wassermelone→PLU 66.\nEingabe: "${text}"\nZahlen: ${NK.slice(0,20).map(k=>k+"="+NW[k]).join(" ")}\nkilo/kg→KG stück→ST fehlend→Einheit.\nNUR JSON: {"plu":1,"quantity":2,"unit":"KG"} oder {"error":true}`}]})
+    });
+    const d=await res.json();
+    const raw=(d.content||[]).map(c=>c.text||"").join("").replace(/```\w*\n?|```/g,"").trim();
+    const p=JSON.parse(raw);
+    if(p.error)return p;
+    const art=IDX.find(a=>String(a.plu)===String(p.plu));
+    return art?{...p,name:art.name,unit:p.unit||art.unit}:{error:true};
+  }catch{return{error:true};}
+}
+// Wrap parseV to log results
+const _parseV=parseV;
+async function parseVDebug(text){
+  const local=lParse(text);
+  const result=local||await _parseV(text);
+  addDebugLog(text,result);
+  return result;
+}
+
+// ── VIEWS ─────────────────────────────────────────────────
+function go(v){document.querySelectorAll('.view').forEach(el=>el.classList.remove('active'));document.getElementById('v-'+v).classList.add('active');}
+function goKey(){go('key');}
+function goArc(){renderArc();go('arc');}
+function saveKey(skip){apiKey=skip?'':(document.getElementById('key-inp').value.trim());try{localStorage.setItem('plu_key',apiKey);}catch{}go('main');}
+
+// ── ERROR ─────────────────────────────────────────────────
+function showErr(msg){
+  document.getElementById('err-msg').textContent=msg;
+  const b=document.getElementById('err-banner'),i=document.getElementById('err-inner');
+  i.classList.remove('shaking');void i.offsetWidth;
+  b.classList.add('show');i.classList.add('shaking');
+  try{const ac=new(window.AudioContext||window.webkitAudioContext)();const o=ac.createOscillator(),g=ac.createGain();o.connect(g);g.connect(ac.destination);o.frequency.value=220;g.gain.setValueAtTime(.3,ac.currentTime);g.gain.exponentialRampToValueAtTime(.001,ac.currentTime+.3);o.start();o.stop(ac.currentTime+.3);setTimeout(()=>ac.close(),600);}catch{}
+  if(errTimer)clearTimeout(errTimer);errTimer=setTimeout(()=>b.classList.remove('show'),3500);
+}
+function beepOk(){try{const ac=new(window.AudioContext||window.webkitAudioContext)();const o=ac.createOscillator(),g=ac.createGain();o.connect(g);g.connect(ac.destination);o.frequency.value=900;g.gain.setValueAtTime(.15,ac.currentTime);g.gain.exponentialRampToValueAtTime(.001,ac.currentTime+.18);o.start();o.stop(ac.currentTime+.18);setTimeout(()=>ac.close(),400);}catch{}}
+
+// ── RENDER LIST ───────────────────────────────────────────
+function renderList(){
+  const el=document.getElementById('item-list');
+  if(!items.length){el.innerHTML='<div class="empty"><div class="empty-ico">🛒</div><div class="empty-t">Keine Artikel erfasst</div><div class="empty-h">Mikrofon starten und Artikel ansagen</div></div>';return;}
+  el.innerHTML=items.map((it,i)=>`
+    <div class="row-wrap">
+      <div class="del-bg">🗑</div>
+      <div class="item-row${it.id===succId?' ok':''}" data-i="${i}">
+        <div class="i-left">
+          <div class="i-name">${it.name}</div>
+          <div class="i-plu">${it.plu}</div>
+          <div class="i-total">Gesamt: <b>${eur(it.total)}</b></div>
+        </div>
+        <div class="i-right">
+          <div class="i-price">${eur(it.price)}</div>
+          <div class="i-qty">${fq(it.quantity,it.unit)}</div>
+          <button class="i-del" onclick="delItem(${i});event.stopPropagation()">🗑</button>
+        </div>
+      </div>
+    </div>`).join('');
+  // Swipe
+  el.querySelectorAll('.item-row').forEach(row=>{
+    let sx=null,cx=0;
+    let didSwipe=false;
+    row.addEventListener('touchstart',e=>{sx=e.touches[0].clientX;cx=0;didSwipe=false;},{passive:true});
+    row.addEventListener('touchmove',e=>{if(sx===null)return;const d=e.touches[0].clientX-sx;if(Math.abs(d)>6)didSwipe=true;if(d<0){cx=Math.max(d,-68);row.style.transform=`translateX(${cx}px)`;row.style.transition='none';}},{passive:true});
+    row.addEventListener('touchend',()=>{if(cx<-50){const i=parseInt(row.dataset.i);items.splice(i,1);renderList();renderFooter();}else{row.style.transform='translateX(0)';row.style.transition='transform .2s ease';}cx=0;});
+    row.addEventListener('click',()=>{if(!didSwipe)openEdit(parseInt(row.dataset.i));});
+  });
+}
+
+function renderFooter(){
+  const t=items.reduce((s,i)=>s+i.total,0);
+  document.getElementById('total-lbl').innerHTML='∑ '+eur(t);
+  document.getElementById('send-btn').disabled=!items.length;
+}
+function delItem(i){items.splice(i,1);renderList();renderFooter();}
+// ── EDIT MODAL ────────────────────────────────────────────
+let editIdx=null;
+function openEdit(i){
+  editIdx=i;const it=items[i];
+  document.getElementById('edit-art-name').textContent=it.name;
+  document.getElementById('edit-qty-lbl').textContent='Menge ('+(it.unit==='KG'?'Kilogramm':'Stück')+'):';
+  const inp=document.getElementById('edit-qty-inp');
+  inp.step=it.unit==='KG'?'0.001':'1';
+  inp.value=it.unit==='KG'?it.quantity.toFixed(3):Math.round(it.quantity);
+  document.getElementById('edit-modal').style.display='flex';
+  setTimeout(()=>{inp.focus();inp.select();},50);
+}
+function closeEdit(){document.getElementById('edit-modal').style.display='none';editIdx=null;}
+function editModalBg(e){if(e.target===document.getElementById('edit-modal'))closeEdit();}
+function confirmEdit(){
+  if(editIdx===null)return;
+  const q=parseFloat(document.getElementById('edit-qty-inp').value.replace(',','.'));
+  if(!q||q<=0)return;
+  items[editIdx].quantity=q;items[editIdx].total=items[editIdx].price*q;
+  closeEdit();renderList();renderFooter();
+}
+
+
+// ── ADD ITEM ──────────────────────────────────────────────
+function addItem(p){
+  const art=IDX.find(a=>String(a.plu)===String(p.plu)&&(!p.name||a.name===p.name))||IDX.find(a=>String(a.plu)===String(p.plu));
+  if(!art)return false;
+  const q=Math.max(Number(p.quantity)||1,.01);
+  const it={id:Date.now()+Math.random(),plu:art.plu,name:art.name,quantity:q,unit:p.unit||art.unit,price:art.price,total:art.price*q};
+  items.push(it);
+  succId=it.id;
+  renderList();renderFooter();
+  const el=document.getElementById('item-list');el.scrollTop=el.scrollHeight;
+  beepOk();
+  if(succTimer)clearTimeout(succTimer);
+  succTimer=setTimeout(()=>{succId=null;renderList();},1000);
+  // Brief confirmation: show what was added
+  setInterim('✅ Hinzugefügt: '+art.name+' — '+fq(q,art.unit));
+  setTimeout(()=>setInterim(''),2000);
+  return true;
+}
+
+// ── SENDEN ────────────────────────────────────────────────
+function doSend(){
+  if(!items.length)return;
+  const t=items.reduce((s,i)=>s+i.total,0);
+  const e={id:Date.now(),date:new Date().toLocaleDateString('de-DE'),time:new Date().toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'}),items:[...items],total:t};
+  archive.unshift(e);
+  try{localStorage.setItem('plu_arc',JSON.stringify(archive));}catch{}
+  items=[];renderList();renderFooter();
+}
+
+// ── ARCHIVE ───────────────────────────────────────────────
+function renderArc(){
+  const el=document.getElementById('arc-list');
+  if(!archive.length){el.innerHTML='<div class="arch-empty">📭<br><br>Noch keine gespeicherten Listen</div>';return;}
+  el.innerHTML=archive.map((e,i)=>`<div class="arch-row" onclick="showDet(${i})"><div><div class="arch-date">${e.date}</div><div class="arch-sub">${e.time} Uhr · ${e.items.length} Artikel</div></div><div style="text-align:right"><div class="arch-tot">${eur(e.total)}</div><div style="color:#bbb">›</div></div></div>`).join('');
+}
+function showDet(i){
+  const e=archive[i];
+  document.getElementById('det-title').textContent=e.date+' · '+e.time+' Uhr';
+  document.getElementById('det-sub').textContent=e.items.length+' Artikel · '+eur(e.total);
+  document.getElementById('det-list').innerHTML=e.items.map(it=>`<div class="det-row"><div style="min-width:0;flex:1;margin-right:12px"><div class="det-name">${it.name}</div><div class="det-plu">${it.plu}</div><div class="det-ges">Gesamt: <b>${eur(it.total)}</b></div></div><div style="text-align:right;flex-shrink:0"><div style="font-size:14px;color:#111">${eur(it.price)}</div><div style="font-size:13px;color:#555;margin-top:2px">${fq(it.quantity,it.unit)}</div></div></div>`).join('');
+  document.getElementById('det-footer').textContent='∑ '+eur(e.total);
+  go('det');
+}
+
+// ── ADD MODAL ─────────────────────────────────────────────
+function openAdd(){selArt=null;document.getElementById('num-inp').value='';document.getElementById('num-res').innerHTML='';document.getElementById('name-inp').value='';document.getElementById('name-res').innerHTML='';document.getElementById('qty-sec').style.display='none';document.getElementById('add-ok').disabled=true;switchTab('num');document.getElementById('add-modal').classList.add('show');}
+function closeAdd(){document.getElementById('add-modal').classList.remove('show');}
+function modalBg(e){if(e.target===document.getElementById('add-modal'))closeAdd();}
+function switchTab(t){
+  addTab=t;selArt=null;
+  document.getElementById('t-num').classList.toggle('on',t==='num');
+  document.getElementById('t-name').classList.toggle('on',t==='name');
+  document.getElementById('c-num').style.display=t==='num'?'block':'none';
+  document.getElementById('c-name').style.display=t==='name'?'block':'none';
+  document.getElementById('qty-sec').style.display='none';
+  document.getElementById('add-ok').disabled=true;
+}
+function setArt(art){
+  selArt=art;
+  document.getElementById('qty-lbl').textContent='Menge ('+(art.unit==="KG"?"Kilogramm":"Stück")+'):';
+  const qi=document.getElementById('qty-inp');qi.step=art.unit==="KG"?"0.1":"1";qi.value="1";
+  document.getElementById('qty-sec').style.display='block';
+  document.getElementById('add-ok').disabled=false;
+}
+function numInp(){
+  const v=document.getElementById('num-inp').value.trim();
+  const el=document.getElementById('num-res');
+  const art=v?ALL.find(a=>String(a.plu)===v):null;
+  if(art){el.innerHTML=`<div class="art-prev"><b class="art-n">${art.name}</b><span class="art-s">${art.unit} · ${eur(art.price)}</span></div>`;setArt(art);}
+  else if(v){el.innerHTML='<div class="err-t">PLU nicht gefunden</div>';selArt=null;document.getElementById('qty-sec').style.display='none';document.getElementById('add-ok').disabled=true;}
+  else{el.innerHTML='';selArt=null;document.getElementById('qty-sec').style.display='none';document.getElementById('add-ok').disabled=true;}
+}
+function nameInp(){
+  const v=document.getElementById('name-inp').value.trim().toLowerCase();
+  const el=document.getElementById('name-res');
+  selArt=null;document.getElementById('qty-sec').style.display='none';document.getElementById('add-ok').disabled=true;
+  if(v.length<2){el.innerHTML='';nameResults=[];return;}
+  nameResults=IDX.filter(a=>a.s.includes(v)||a.name.toLowerCase().includes(v)).slice(0,9);
+  el.innerHTML=nameResults.map((a,i)=>`<div class="art-hit" data-i="${i}" onclick="pickName(${i})"><b class="art-n">${a.name}</b><span class="art-s">PLU ${a.plu} · ${a.unit}</span></div>`).join('');
+}
+function pickName(i){
+  document.querySelectorAll('.art-hit').forEach((el,j)=>el.classList.toggle('sel',j===i));
+  setArt(nameResults[i]);
+}
+function doAdd(){
+  if(!selArt)return;
+  const q=parseFloat(document.getElementById('qty-inp').value.replace(",","."));
+  if(!q||q<=0)return;
+  addItem({plu:selArt.plu,name:selArt.name,quantity:q,unit:selArt.unit});
+  closeAdd();
+}
+
+// ── VOICE ─────────────────────────────────────────────────
+let recognition=null;
+let debugLogs=[];
+let debugVisible=false;
+function toggleDebug(){
+  debugVisible=!debugVisible;
+  document.getElementById("debug-bar").style.display=debugVisible?"block":"none";
+}
+function addDebugLog(raw,parsed){
+  const entry="RAW: „"+raw+"“ → "+JSON.stringify(parsed);
+  debugLogs.unshift(entry);
+  if(debugLogs.length>5)debugLogs.pop();
+  document.getElementById("debug-log").textContent=debugLogs[0];
+  // Always show debug bar briefly when new log arrives
+  const bar=document.getElementById("debug-bar");
+  bar.style.display="block";
+  if(!debugVisible)setTimeout(()=>{if(!debugVisible)bar.style.display="none";},5000);
+}
+function setInterim(txt){const el=document.getElementById('interim-bar');if(txt){el.textContent=txt;el.classList.add('show');}else{el.classList.remove('show');el.textContent='';}}
+async function runQ(){
+  if(isProc||!procQ.length)return;
+  isProc=true;
+  const t=procQ.shift();
+  setInterim('⧗ Verarbeite: „'+t+'“');
+  try{
+    const p=await parseVDebug(t);
+    if(p.error||!addItem(p))showErr('Nicht erkannt — Originaltext: „'+t+'“');
+  }catch(e){showErr('Fehler — Text: „'+t+'“');}
+  finally{isProc=false;setInterim('');if(procQ.length)runQ();}
+}
+async function toggleRec(){
+  const btn=document.getElementById('mic-btn');
+  if(recActive){
+    recActive=false;recognition&&recognition.stop();stopViz();
+    btn.classList.remove('rec');btn.textContent='🎙';
+    document.getElementById('visualizer').classList.remove('show');
+    setInterim('');
+  } else {
+    const SpeechRecognition=window.SpeechRecognition||window.webkitSpeechRecognition;
+    if(!SpeechRecognition){showErr('Spracherkennung nicht unterstützt – bitte Chrome verwenden');return;}
+    recognition=new SpeechRecognition();recognition.continuous=true;recognition.interimResults=true;recognition.lang='de-DE';
+    recognition.onresult=e=>{
+      let fin='',intr='';
+      for(let i=e.resultIndex;i<e.results.length;i++){if(e.results[i].isFinal)fin+=e.results[i][0].transcript;else intr+=e.results[i][0].transcript;}
+      if(intr)setInterim('🎙 '+intr);
+      if(fin.trim()){
+        // Show FINAL transcript so user can see exactly what speech API sent
+        setInterim('📝 '+fin.trim());
+        procQ.push(fin.trim());runQ();
+      }
+    };
+    recognition.onerror=e=>{if(e.error!=='aborted')showErr('Mikrofon: '+e.error);};
+    recognition.onend=()=>{if(recActive)try{recognition.start();}catch{}};
+    recognition.start();recActive=true;
+    btn.classList.add('rec');btn.textContent='⏹';
+    document.getElementById('visualizer').classList.add('show');
+    startViz();
+  }
+}
+
+// ── VISUALIZER ────────────────────────────────────────────
+async function startViz(){
+  try{
+    const stream=await navigator.mediaDevices.getUserMedia({audio:true});
+    vizStream=stream;
+    const ac=new(window.AudioContext||window.webkitAudioContext)();vizAC=ac;
+    const src=ac.createMediaStreamSource(stream);
+    const an=ac.createAnalyser();an.fftSize=128;src.connect(an);
+    const cv=document.getElementById('vis-cv');cv.width=cv.offsetWidth||400;
+    const draw=()=>{
+      vizRaf=requestAnimationFrame(draw);
+      const ctx=cv.getContext('2d');const buf=new Uint8Array(an.frequencyBinCount);
+      an.getByteFrequencyData(buf);ctx.clearRect(0,0,cv.width,cv.height);
+      const bw=cv.width/buf.length;
+      buf.forEach((v,i)=>{const bh=Math.round((v/255)*cv.height);ctx.fillStyle=`rgba(0,150,136,${.35+(v/255)*.65})`;ctx.fillRect(Math.round(i*bw)+1,cv.height-bh,Math.max(bw-2,1),bh);});
+    };draw();
+  }catch(e){console.warn('Mic:',e);}
+}
+function stopViz(){if(vizRaf)cancelAnimationFrame(vizRaf);vizStream&&vizStream.getTracks().forEach(t=>t.stop());vizAC&&vizAC.close().catch(()=>{});}
+
+// ── INIT ──────────────────────────────────────────────────
+window.addEventListener('DOMContentLoaded',()=>{
+  try{const a=localStorage.getItem('plu_arc');if(a)archive=JSON.parse(a);}catch{}
+  try{const k=localStorage.getItem('plu_key');if(k===null){go('key');}else{apiKey=k;go('main');}}
+  catch{go('key');}
+  renderList();renderFooter();
+});
+</script>
+</body>
+</html>
